@@ -1,4 +1,4 @@
-# native-sim-template-version: 2
+# native-sim-template-version: 3
 from decimal import Decimal
 import hashlib
 import json
@@ -143,12 +143,22 @@ def main():
     bucket = os.environ.get("R2_CACHE_BUCKET", "")
     values = [endpoint, bucket, os.environ.get("AWS_ACCESS_KEY_ID"), os.environ.get("AWS_SECRET_ACCESS_KEY")]
     if not any(values):
-        print("R2 cache credentials are unset. Building without a remote device cache.")
+        print("R2 credentials are unset. Skipping R2 upload or restore.")
         return
     if not all(values) or not re.fullmatch(r"https://[a-f0-9]{32}(?:\.(?:eu|fedramp))?\.r2\.cloudflarestorage\.com/?", endpoint):
         raise OSError("Configure the R2 endpoint, bucket, access key, and secret access key")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{1,61}[a-z0-9]", bucket):
         raise OSError("Invalid R2 bucket name")
+    if operation == "publish":
+        ipa = Path(os.environ["NATIVE_SIM_IPA_FILE"])
+        run_id = os.environ["GITHUB_RUN_ID"]
+        if not run_id.isdecimal() or not ipa.is_file():
+            raise OSError("Missing IPA or workflow run ID")
+        key = f"native-sim/ipa/{run_id}/unsigned.ipa"
+        if aws("s3", "cp", str(ipa), f"s3://{bucket}/{key}", "--only-show-errors").returncode:
+            raise OSError("R2 IPA upload failed")
+        print(f"Saved private IPA to R2 at {key}")
+        return
     if not hasattr(tarfile, "data_filter"):
         raise OSError("Python tar extraction filters are unavailable")
     build = Path("build")
