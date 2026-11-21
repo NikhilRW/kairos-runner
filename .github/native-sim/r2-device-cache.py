@@ -1,4 +1,4 @@
-# native-sim-template-version: 1
+# native-sim-template-version: 2
 from decimal import Decimal
 import hashlib
 import json
@@ -57,6 +57,9 @@ def cache_key(xcode):
         repository, str(Path.cwd()), os.environ.get("SCHEME", ""),
         xcode, developer_dir, sdk, macos, architecture,
     ]
+    framework = os.environ.get("R2_CACHE_FRAMEWORK", "native")
+    if framework != "native":
+        compatibility.append(framework)
     digest = hashlib.sha256(json.dumps(compatibility).encode()).hexdigest()
     return f"native-sim/device-v1/{digest}.tar.gz"
 
